@@ -27,11 +27,6 @@
 VideoEncoderInstance::VideoEncoderInstance(PP_Instance instance,
 		pp::Module* module) :
 		pp::Instance(instance),
-		muxer(*this),
-#ifdef USING_AUDIO
-		audio_enc(this, muxer),
-#endif
-		video_enc(this, muxer),
 		handle(this),
 		video_encoder_thread(handle),
 		audio_encoder_thread(handle)
@@ -42,6 +37,12 @@ VideoEncoderInstance::VideoEncoderInstance(PP_Instance instance,
 VideoEncoderInstance::~VideoEncoderInstance() {
 	umount(FS_PATH);
 	nacl_io_uninit();
+
+	delete video_enc;
+#ifdef USING_AUDIO
+	delete audio_enc;
+#endif
+	delete muxer;
 
 }
 
@@ -70,6 +71,7 @@ pp::Resource* _track_res;
 pp::Size _video_size;
 PP_VideoProfile _video_profile;
 VideoEncoder* _video_enc;
+
 void VideoEncoderWorker(void* params, int result);
 #ifdef USING_AUDIO
 	AudioEncoder* _audio_enc;
@@ -89,8 +91,16 @@ void VideoEncoderInstance::HandleMessage(const pp::Var& var_message) {
 	Log("mensagem: " << var_message.AsString());
 	if (command == "start") {
 
+		muxer = new WebmMuxer(*this);
+		video_enc = new VideoEncoder(this, *muxer);
+
+#ifdef USING_AUDIO
+		audio_enc = new AudioEncoder(this, *muxer);
+#endif
+
 		pp::Size requested_size = pp::Size(dict_message.Get("width").AsInt(),
 				dict_message.Get("height").AsInt());
+
 
 		pp::Var var_video_track = dict_message.Get("video_track");
 		if (!var_video_track.is_resource()) {
@@ -108,13 +118,16 @@ void VideoEncoderInstance::HandleMessage(const pp::Var& var_message) {
 		track_res[1] = var_audio_track.AsResource();
 #endif
 
+		//Variáveis tem que serem passadas assim porque o callback da PPAPI não suporta tantos argumentos(máximo de 3).
 		_track_res = track_res;
 		_video_profile = PP_VIDEOPROFILE_VP8_ANY;
 		_video_size  = requested_size;
-		_video_enc = &video_enc;
+		_video_enc = video_enc;
 
 		file_name = dict_message.Get("file_name").AsString();
-		muxer.SetFileName(file_name);
+
+		muxer->SetFileName(file_name);
+
 		video_encoder_thread.Start();
 		pp::CompletionCallback video_callback(&VideoEncoderWorker,0);
 		video_encoder_thread.message_loop().PostWork(video_callback,0);
@@ -130,10 +143,15 @@ void VideoEncoderInstance::HandleMessage(const pp::Var& var_message) {
 
 	} else if (command == "stop") {
 		Log("Parando encode...");
-		video_enc.StopEncode();
+		video_enc->StopEncode();
 #ifdef USING_AUDIO
 		audio_enc.Stop();
 #endif
+		delete video_enc;
+#ifdef USING_AUDIO
+		delete audio_enc;
+#endif
+		delete muxer;
 		Log("Comando executado com sucesso");
 	} else {
 		LogError(PP_ERROR_BADARGUMENT,"Comando inválido!");
@@ -152,12 +170,3 @@ void AudioEncoderWorker(void* params, int result){
 	_audio_enc->Start(_track_res[1]);
 #endif
 }
-
-//
-//void VideoEncoderInstance::EncodeWorker(int, pp::Size video_size, PP_VideoProfile video_profile) {
-//	Log("Starting encoder...");
-//	video_enc.Encode(video_size,track_res[0],video_profile);
-//	audio_enc.Start(track_res[1]);
-//
-//}
-

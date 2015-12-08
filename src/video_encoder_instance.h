@@ -40,13 +40,13 @@ private:
 	void EncodeWorker(int, pp::Size video_size, PP_VideoProfile video_profile);
 
 	/**Muxer que será usado para criar o arquivo de video(ou video+audio) resultante*/
-	WebmMuxer muxer;
+	WebmMuxer* muxer;
 	//Se definida, permite o uso do encoder de áudio, que não está funcionando atualmente.
 #ifdef USING_AUDIO
-	AudioEncoder audio_enc;
+	AudioEncoder* audio_enc;
 #endif
 	/**Encoder de vídeo*/
-	VideoEncoder video_enc;
+	VideoEncoder* video_enc;
 	/**Necessário para a inicialização das threads*/
 	pp::InstanceHandle handle;
 	/**Thread em que o encoding de vídeo roda*/

@@ -11,13 +11,15 @@
 #include "log.h"
 
 WebmMuxer::WebmMuxer(pp::Instance& _instance) :
-		instance(_instance), initialized(false), finished(false) {
+		instance(_instance),pSegment(new mkvmuxer::Segment()), initialized(false), finished(false) {
 }
 
 WebmMuxer::~WebmMuxer() {
 	writer.Close();
 	audio_queue.clear();
 	video_queue.clear();
+
+	delete pSegment;
 }
 
 int WebmMuxer::Init(std::string file_name) {
@@ -30,12 +32,14 @@ int WebmMuxer::Init(std::string file_name) {
 		Log("Arquivo não pôde ser aberto");
 		return false;
 	}
-	segment.Init(&writer);
-	segment.set_mode(mkvmuxer::Segment::kFile);
-	video_track_num = segment.AddVideoTrack(video_width, video_height, 1);
-	audio_track_num = segment.AddAudioTrack(audio_sample_rate, audio_channels,
+	pSegment = new mkvmuxer::Segment();
+
+	pSegment->Init(&writer);
+	pSegment->set_mode(mkvmuxer::Segment::kFile);
+	video_track_num = pSegment->AddVideoTrack(video_width, video_height, 1);
+	audio_track_num = pSegment->AddAudioTrack(audio_sample_rate, audio_channels,
 			2);
-	segment.CuesTrack(video_track_num);
+	pSegment->CuesTrack(video_track_num);
 
 	initialized = true;
 	finished = false;
@@ -81,10 +85,12 @@ bool WebmMuxer::PushVideoFrame(byte* data, uint32 length, uint64 timestamp, bool
 
 bool WebmMuxer::AddVideoFrame(byte* data, uint32 length, uint64 timestamp, bool key_frame) {
 
-	if (!Init(file_name))
+	if (!Init(file_name)){
+		LogError(-99,"While initilizing muxer");
 		return false;
+	}
 
-	bool result = segment.AddFrame(data, length, video_track_num, timestamp, key_frame);
+	bool result = pSegment->AddFrame(data, length, video_track_num, timestamp, key_frame);
 
 	return result;
 
@@ -94,7 +100,7 @@ bool WebmMuxer::Finish() {
 	if (finished)
 		return true;
 
-	if (!segment.Finalize())
+	if (!pSegment->Finalize())
 		return false;
 
 	writer.Close();
@@ -104,6 +110,8 @@ bool WebmMuxer::Finish() {
 
 	finished = true;
 	initialized = false;
+
+	delete pSegment;
 
 	return true;
 }
@@ -152,7 +160,7 @@ bool WebmMuxer::WriteFrames(std::string file_name) {
 		} else if (video_frame->IsValid()) {
 			frame.CopyFrom(*video_frame);
 		}
-		result = segment.AddGenericFrame(&frame) || result;
+		result = pSegment->AddGenericFrame(&frame) || result;
 
 		(frame.timestamp() == audio_frame->timestamp()) ?
 				audio_queue.pop_front() : video_queue.pop_front();

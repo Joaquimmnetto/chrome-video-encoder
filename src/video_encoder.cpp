@@ -36,6 +36,7 @@
 #define INSTANCE (*instance)
 #include "log.h"
 
+#define NS_EXP 1000*1000*1000
 
 #define FS_PATH "/persistent/"
 
@@ -218,8 +219,10 @@ void VideoEncoder::OnEncoderFrame(int32 result,
 		return;
 	}
 
-	if (CopyVideoFrame(encoder_frame, track_frame) == PP_OK)
+	if (CopyVideoFrame(encoder_frame, track_frame) == PP_OK){
 		EncodeFrame(encoder_frame);
+	}
+
 	video_track.RecycleFrame(track_frame);
 }
 
@@ -241,6 +244,10 @@ int32 VideoEncoder::CopyVideoFrame(pp::VideoFrame dest,
 void VideoEncoder::EncodeFrame(const pp::VideoFrame& frame) {
 	frames_timestamps.push_back(
 			static_cast<uint64>(frame.GetTimestamp() * 1000));
+
+#ifdef LOG_FRAMES
+	Log("Encoding frame " << frame.GetTimestamp() * NS_EXP);
+#endif
 	video_encoder.Encode(frame, PP_FALSE,
 			callback_factory.NewCallback(&VideoEncoder::OnEncodeDone));
 }
@@ -263,11 +270,18 @@ void VideoEncoder::OnGetBitstreamBuffer(int32 result,
 		return;
 	}
 
+
 	uint64 timestamp_ns = frames_timestamps.front() * 1000 * 1000;
 	byte* frame_data = static_cast<byte*>(buffer.buffer);
 	uint64 size = buffer.size;
 	bool key_frame = buffer.key_frame;
-	muxer.AddVideoFrame(frame_data, size, timestamp_ns, key_frame);
+
+#ifdef LOG_FRAMES
+	Log("Salvando frame " << timestamp_ns << " de tamanho "<< size);
+#endif
+	if(!muxer.AddVideoFrame(frame_data, size, timestamp_ns, key_frame)){
+		LogError(-99,"Enquanto salvando frame "<< timestamp_ns);
+	}
 
 	frames_timestamps.pop_front();
 	video_encoder.RecycleBitstreamBuffer(buffer);
@@ -307,17 +321,18 @@ void VideoEncoder::OnTrackFrame(int32 result, pp::VideoFrame frame) {
 
 void VideoEncoder::StopEncode() {
 	video_encoder.Close();
-	StopTrackFrames();
-	video_track.Close();
-	muxer.Finish();
+	StopTrackingFrames();
+
 	is_encoding = false;
+	muxer.Finish();
 }
 
-void VideoEncoder::StopTrackFrames() {
+void VideoEncoder::StopTrackingFrames() {
 	is_receiving_track_frames = false;
 	if (!current_track_frame.is_null()) {
 		video_track.RecycleFrame(current_track_frame);
 		current_track_frame.detach();
 	}
+	video_track.Close();
 }
 

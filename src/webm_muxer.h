@@ -21,6 +21,8 @@
 
 class WebmMuxer {
 public:
+
+
 	WebmMuxer(pp::Instance& instance);
 
 	void ConfigureVideo( int video_width, int video_height );
@@ -41,7 +43,7 @@ private:
 	pp::Instance& instance;
 	std::string file_name;
 
-	mkvmuxer::Segment segment;
+	mkvmuxer::Segment* pSegment;
 	mkvmuxer::MkvWriter writer;
 
 	std::deque< mkvmuxer::Frame* > audio_queue;

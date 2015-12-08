@@ -129,7 +129,7 @@ private:
 	/**
 	 * Encerra o loop da track de frames.
 	 */
-	void StopTrackFrames();
+	void StopTrackingFrames();
 	/**
 	 * Preenche current_track_frame e recicla os frames.
 	 */
