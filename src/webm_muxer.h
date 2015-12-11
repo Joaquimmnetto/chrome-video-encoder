@@ -14,29 +14,28 @@
 #include <ppapi/cpp/instance.h>
 #include <ppapi/utility/threading/simple_thread.h>
 
-#include "defines.h"
-
 #include "libwebm/mkvmuxer.hpp"
 #include "libwebm/mkvwriter.hpp"
+#include "tipos.h"
 
 class WebmMuxer {
 public:
 
 
-	WebmMuxer(pp::Instance& instance);
+	WebmMuxer( pp::Instance& instance );
 
 	void ConfigureVideo( int video_width, int video_height );
 	void ConfigureAudio( int audio_sample_rate, int audio_channels );
 
-	bool PushAudioFrame(byte* data, uint32 length, uint64 timestamp);
-	bool PushVideoFrame(byte* data, uint32 length, uint64 timestamp, bool key_frame);
+	bool PushAudioFrame( byte* data, uint32 length, uint64 timestamp );
+	bool PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame );
 
-	bool AddVideoFrame(byte* data, uint32 length, uint64 timestamp, bool key_frame);
+	bool AddVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame );
 	bool Finish();
 	///Escreve todos os frames em arquivo. Certifique-se que tanto a gravação de áudio como a de vídeo foram devidamente finalizadas.
-	bool WriteFrames(std::string file_name);
+	bool WriteFrames( std::string file_name );
 
-	inline void SetFileName(const std::string _file_name) {file_name = _file_name;}
+	inline void SetFileName( const std::string _file_name ) {file_name = _file_name;}
 
 	virtual ~WebmMuxer();
 private:

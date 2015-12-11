@@ -11,7 +11,10 @@
 
 
 pp::Instance* VideoEncoderModule::CreateInstance(PP_Instance instance) {
-	return new VideoEncoderInstance(instance, this);
+	pp::Instance* inst = new VideoEncoderInstance(instance, this);
+
+	inst->LogToConsole(PP_LOGLEVEL_LOG,"Instância criada");
+	return inst;
 }
 
 namespace pp {

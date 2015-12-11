@@ -21,9 +21,9 @@
 #include "libwebm/mkvmuxer.hpp"
 #include "libwebm/mkvwriter.hpp"
 
-#include "defines.h"
 #include "video_encoder.h"
 #include "audio_encoder.h"
+#include "tipos.h"
 
 class VideoEncoderInstance: public pp::Instance {
 public:
@@ -31,7 +31,8 @@ public:
 	virtual ~VideoEncoderInstance();
 
 	virtual void HandleMessage(const pp::Var& var_message);
-	pp::SimpleThread& encoderThread();
+
+	inline pp::SimpleThread& encoderThread(){	return video_encoder_thread; }
 
 private:
 	/**Inicializa o sistema de arquivos do HTMl5*/
@@ -39,16 +40,16 @@ private:
 	/**Método utilizado como ponto de entrada de video_encoder_thread*/
 	void EncodeWorker(int, pp::Size video_size, PP_VideoProfile video_profile);
 
-	/**Muxer que será usado para criar o arquivo de video(ou video+audio) resultante*/
-	WebmMuxer* muxer;
+	/**Necessário para a inicialização das threads*/
+	pp::InstanceHandle handle;
 	//Se definida, permite o uso do encoder de áudio, que não está funcionando atualmente.
 #ifdef USING_AUDIO
 	AudioEncoder* audio_enc;
 #endif
 	/**Encoder de vídeo*/
 	VideoEncoder* video_enc;
-	/**Necessário para a inicialização das threads*/
-	pp::InstanceHandle handle;
+	/**Muxer que será usado para criar o arquivo de video(ou video+audio) resultante*/
+	WebmMuxer* muxer;
 	/**Thread em que o encoding de vídeo roda*/
 	pp::SimpleThread video_encoder_thread;
 	/**Thread em que o encoding de áudio roda*/
@@ -56,9 +57,9 @@ private:
 	/**Nome do arquivo a ser salvo pelo muxer*/
 	std::string file_name;
 
-	pp::Resource track_res[2];
+	pp::Resource video_track_res;
 
-
+	pp::Resource audio_track_res;
 };
 
 #endif /* VIDEO_ENCODER_INSTANCE_H_ */

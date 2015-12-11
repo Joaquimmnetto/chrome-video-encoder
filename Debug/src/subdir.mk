@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../src/audio_encoder.cpp \
+../src/video_track.cpp \
 ../src/video_encoder.cpp \
 ../src/webm_muxer.cpp \
 ../src/video_encoder_instance.cpp \
@@ -12,6 +13,7 @@ CPP_SRCS += \
 
 OBJS += \
 ./src/audio_encoder.o \
+./src/video_track.o \
 ./src/video_encoder.o \
 ./src/webm_muxer.o \
 ./src/video_encoder_instance.o \
@@ -19,6 +21,7 @@ OBJS += \
 
 CPP_DEPS += \
 ./src/audio_encoder.d \
+./src/video_track.d \
 ./src/video_encoder.d \
 ./src/webm_muxer.d \
 ./src/video_encoder_instance.d \
@@ -29,7 +32,7 @@ CPP_DEPS += \
 src/%.o: ../src/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross G++ Compiler'
-	pnacl-clang++ -std=gnu++11 -I/home/joaquim/Devel/workspace/VideoEncoder/ext_include -I/home/joaquim/nacl/nacl_sdk/pepper_46/include -I/home/joaquim/nacl/nacl_sdk/pepper_46/toolchain/linux_pnacl/include/c++/v1 -O0  -Wall -c -o "$@" "$<"
+	pnacl-clang++ -std=gnu++11 -I/home/joaquim/nacl/nacl_sdk/pepper_46/include -I/home/joaquim/nacl/nacl_sdk/pepper_46/toolchain/linux_pnacl/include/c++/v1 -O0  -Wall -c -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

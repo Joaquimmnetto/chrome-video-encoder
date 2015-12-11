@@ -30,7 +30,7 @@ void VideoTrack::StartTracking() {
 									PP_MEDIASTREAMVIDEOTRACK_ATTRIB_NONE };
 	track.Configure(attrib_list,cb_factory.NewCallback(&VideoTrack::ConfigureCallback));
 
-	Log("Start tracking finished");
+	Log("Track iniciada");
 
 }
 

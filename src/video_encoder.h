@@ -26,7 +26,11 @@
 #include "libwebm/mkvmuxer.hpp"
 #include "libwebm/mkvwriter.hpp"
 
+#include "video_track.h"
+
 #include "webm_muxer.h"
+
+
 
 /**
  * Classe que codifica os frames recebidos do navegador. Têm três fluxos principais: Trilha de frames, Encoder, e BitstreamBuffer.
@@ -55,8 +59,11 @@ public:
 	 * @param resource_track - Objeto pp::Resource da trilha que contêm os frames a serem encodados.
 	 * @param video_profile - PP_VideoProfile especificando qual será o tipo do encoder.
 	 */
-	void Encode(pp::Size requested_size,
-			pp::Resource resource_track, PP_VideoProfile video_profile);
+	void Encode(pp::Size requested_size, pp::Resource track, PP_VideoProfile video_profile);
+
+	void SetTrack(pp::Resource track_res);
+
+	inline bool is_encoding(){return encoding;}
 	/**
 	 * Encerra o encode, fechando a track associada e criando o arquivo .webm do muxer associado.
 	 */
@@ -71,14 +78,6 @@ private:
 	 */
 	void OnEncoderProbed(int32 result,
 			const std::vector<PP_VideoProfileDescription> profiles);
-	/**
-	 * Inicializa a trilha associada ao encoder.
-	 */
-	void ConfigureTrack();
-	/**
-	 * Callback de ConfigureTrack(), chama StartEncoder()
-	 */
-	void OnConfiguredTrack(int32 result);
 	/**
 	 * Inicializa o encoder.
 	 */
@@ -130,10 +129,6 @@ private:
 	 * Encerra o loop da track de frames.
 	 */
 	void StopTrackingFrames();
-	/**
-	 * Preenche current_track_frame e recicla os frames.
-	 */
-	void OnTrackFrame(int32 result, pp::VideoFrame frame);
 
 	void EncodeWorker(int result);
 
@@ -144,6 +139,8 @@ private:
 	pp::InstanceHandle handle;
 	/**Muxer Webm para criação do arquivo .webm*/
 	WebmMuxer& muxer;
+	/**Objeto trilha*/
+	VideoTrack* track;
 	/**Tipo do encoder que será usado(Padrão VP8)*/
 	PP_VideoProfile video_profile;
 	/**Formato da imagem do frame (Padrão I420)*/
@@ -152,29 +149,25 @@ private:
 	pp::Size requested_size;
 	/**Tamanho do frame da track de frames*/
 	pp::Size frame_size;
-	/**Tamanho do frame a ser passado para o encoder*/
-	pp::Size encoder_size;
+//	/**Tamanho do frame a ser passado para o encoder*/
+//	pp::Size encoder_size;
 	/**Objeto encoder da PPAPI*/
-	pp::VideoEncoder video_encoder;
-	/**Objeto trilha da PPAPI*/
-	pp::MediaStreamVideoTrack video_track;
+	pp::VideoEncoder encoder;
+//	std::vector<pp::MediaStreamVideoTrack> video_track;
 	/**Factory necessária para a criação de callbacks*/
-	pp::CompletionCallbackFactory<VideoEncoder> callback_factory;
-
-	/**Frame atual da trilha, é utilizado como entrada pelo encoder*/
-	pp::VideoFrame current_track_frame;
+	pp::CompletionCallbackFactory<VideoEncoder> cb_factory;
 
 	/**Se o encoder está ativo*/
-	bool is_encoding;
+	bool encoding;
 	/**Se há um frame sendo encodado neste momento*/
-	bool is_encode_ticking;
+	bool encode_ticking;
 	/**Se a track está ativa*/
-	bool is_receiving_track_frames;
+	bool receiving_frames;
 
 	/**Timestamp indicando o tempo do último encode*/
-	PP_Time last_encode_tick_;
+	PP_Time last_tick;
 	/**Fila com as timestamps dos frames encodados. São retirados pelo BitstreamBuffer para serem passadas ao muxer.*/
-	std::deque<uint64> frames_timestamps;
+	std::deque<double> timestamps;
 
 };
 

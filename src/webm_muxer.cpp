@@ -10,19 +10,18 @@
 #define INSTANCE instance
 #include "log.h"
 
-WebmMuxer::WebmMuxer(pp::Instance& _instance) :
-		instance(_instance),pSegment(new mkvmuxer::Segment()), initialized(false), finished(false) {
+WebmMuxer::WebmMuxer( pp::Instance& _instance ) :
+		instance(_instance),pSegment(0), initialized(false), finished(false) {
 }
 
 WebmMuxer::~WebmMuxer() {
 	writer.Close();
 	audio_queue.clear();
 	video_queue.clear();
-
-	delete pSegment;
+	delete_and_nulify(pSegment);
 }
 
-int WebmMuxer::Init(std::string file_name) {
+int WebmMuxer::Init( std::string file_name ) {
 	if (initialized) {
 		return true;
 	}
@@ -48,12 +47,12 @@ int WebmMuxer::Init(std::string file_name) {
 
 }
 
-void WebmMuxer::ConfigureVideo(int _video_width, int _video_height) {
+void WebmMuxer::ConfigureVideo( int _video_width, int _video_height ) {
 	this->video_width = _video_width;
 	this->video_height = _video_height;
 }
 
-void WebmMuxer::ConfigureAudio(int _audio_sample_rate, int _audio_channels) {
+void WebmMuxer::ConfigureAudio( int _audio_sample_rate, int _audio_channels ) {
 	this->audio_sample_rate = _audio_sample_rate;
 	this->audio_channels = _audio_channels;
 }
@@ -72,7 +71,7 @@ bool WebmMuxer::PushAudioFrame(byte* data, uint32 length, uint64 timestamp) {
 
 }
 
-bool WebmMuxer::PushVideoFrame(byte* data, uint32 length, uint64 timestamp, bool key_frame) {
+bool WebmMuxer::PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame ) {
 	mkvmuxer::Frame* frame = createFrame(data, length, timestamp, 1, key_frame);
 
 	if (frame == NULL) {
@@ -83,7 +82,7 @@ bool WebmMuxer::PushVideoFrame(byte* data, uint32 length, uint64 timestamp, bool
 	return true;
 }
 
-bool WebmMuxer::AddVideoFrame(byte* data, uint32 length, uint64 timestamp, bool key_frame) {
+bool WebmMuxer::AddVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame ) {
 
 	if (!Init(file_name)){
 		LogError(-99,"While initilizing muxer");
@@ -116,8 +115,8 @@ bool WebmMuxer::Finish() {
 	return true;
 }
 
-mkvmuxer::Frame* WebmMuxer::createFrame(byte* data, uint32 length,
-		uint64 timestamp, int track, bool key_frame) {
+mkvmuxer::Frame* WebmMuxer::createFrame( byte* data, uint32 length,
+		uint64 timestamp, int track, bool key_frame ) {
 
 	mkvmuxer::Frame* frame = new mkvmuxer::Frame();
 	if (!frame->Init(data, length)) {
@@ -131,7 +130,7 @@ mkvmuxer::Frame* WebmMuxer::createFrame(byte* data, uint32 length,
 	return frame;
 }
 
-bool WebmMuxer::WriteFrames(std::string file_name) {
+bool WebmMuxer::WriteFrames( std::string file_name ) {
 
 	if (!initialized) {
 		Init(file_name);

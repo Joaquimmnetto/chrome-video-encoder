@@ -4,5 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -lnacl_io -lppapi -lppapi_cpp -lvorbis -lvorbisenc
+LIBS := -lnacl_io -lppapi -lppapi_cpp
 

@@ -57,7 +57,7 @@ clean:
 	-@echo ' '
 
 post-build:
-	-pnacl-finalize VideoEncoder -o /home/joaquim/nacl/nacl_sdk/pepper_46/examples/video/pnacl/Release/video_encoder.pexe
+	-pnacl-finalize VideoEncoder -o /home/joaquim/Devel/workspace/google-chrome-digital-class/pnacl/Release/video_encoder.pexe
 	-@echo ' '
 
 .PHONY: all clean dependents

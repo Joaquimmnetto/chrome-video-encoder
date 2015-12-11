@@ -1,7 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-#define LOG_FRAMES 1
+//#define LOG_FRAMES 1
 
 #ifndef INSTANCE
 	#define INSTANCE
@@ -16,3 +16,4 @@ std::stringstream __logStream;
 #define LogError(error, exp) Log("Erro: "<< error << " : " << exp )
 
 #endif
+//chrome-extension://iifpnkedoaiclkodeheciokndhgaalhj/test-multi-track.html
