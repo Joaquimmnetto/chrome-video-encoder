@@ -19,17 +19,19 @@
 
 class VideoTrack {
 public:
-	VideoTrack( pp::Instance* instance, pp::Size frame_size, pp::Resource track_res );
+	VideoTrack( pp::Instance* instance, pp::Resource track_res );
 
 	~VideoTrack();
 
-	void StartTracking();
+	void StartTracking(pp::Size frame_size);
 
 	void ConfigureCallback( int config_res );
 
 	void RecycleFrame( pp::VideoFrame& frame );
 
 	void StopTracking();
+
+	inline pp::Size GetFrameSize(){return frame_size;}
 
 	pp::VideoFrame current_frame;
 private:

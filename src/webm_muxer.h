@@ -27,8 +27,8 @@ public:
 	void ConfigureVideo( int video_width, int video_height );
 	void ConfigureAudio( int audio_sample_rate, int audio_channels );
 
-	bool PushAudioFrame( byte* data, uint32 length, uint64 timestamp );
-	bool PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame );
+//	bool PushAudioFrame( byte* data, uint32 length, uint64 timestamp );
+//	bool PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame );
 
 	bool AddVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame );
 	bool Finish();
@@ -45,8 +45,15 @@ private:
 	mkvmuxer::Segment* pSegment;
 	mkvmuxer::MkvWriter writer;
 
+	mkvmuxer::Frame last_frame;
+
+	int delayed_frame_count;
+
+
 	std::deque< mkvmuxer::Frame* > audio_queue;
 	std::deque< mkvmuxer::Frame* > video_queue;
+
+
 
 	int audio_track_num;
 	int video_track_num;
@@ -60,8 +67,8 @@ private:
 	bool finished;
 
 	int Init( std::string file_name );
-	mkvmuxer::Frame* createFrame( byte* data, uint32 length, uint64 timestamp, int track, bool key_frame );
-
+	void CreateFrame( byte* data, uint32 length, uint64 timestamp, int track, bool key_frame, /*out*/mkvmuxer::Frame& frame );
+	void SaveDelayed(uint64 current_ts);
 
 
 

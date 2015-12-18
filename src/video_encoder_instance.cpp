@@ -71,11 +71,12 @@ void VideoEncoderInstance::InitializeFileSystem(const std::string& fsPath) {
 }
 
 
-pp::Resource _video_track_res;
+std::vector<pp::Resource> _video_track_res;
+int _chng_track_id;
 pp::Size _video_size;
 PP_VideoProfile _video_profile;
 VideoEncoder* _video_enc = 0;
-
+void ChangeTrackWorker(void* params, int result);
 void VideoEncoderWorker(void* params, int result);
 #ifdef USING_AUDIO
 	pp::Resource _audio_track_res;
@@ -100,7 +101,6 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 			Log("Encode já em execução, chame stop antes de iniciar novamente.");
 			return;
 		}
-
 		muxer = new WebmMuxer(*this);
 		video_enc = new VideoEncoder(this, *muxer);
 #ifdef USING_AUDIO
@@ -110,14 +110,34 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 		pp::Size requested_size = pp::Size(dict_message.Get("width").AsInt(),
 				dict_message.Get("height").AsInt());
 
-
-		pp::Var var_video_track = dict_message.Get("video_track");
-		if (!var_video_track.is_resource()) {
-			LogError(PP_ERROR_BADARGUMENT, "video_track não é um resource");
+		if(!dict_message.Get("video_track").is_array()){
+			LogError( -99, "video_track não é um array!" );
 			return;
 		}
 
-		video_track_res = var_video_track.AsResource();
+		pp::VarArray var_video_track = pp::VarArray(dict_message.Get("video_track"));
+		if (var_video_track.GetLength() == 0) {
+			LogError(-99, "video_track não possui elementos!");
+			return;
+		}
+
+		for(size_t i = 0;i < var_video_track.GetLength(); i++){
+			if (!var_video_track.Get(i).is_resource()) {
+				LogError(-99, "Elemento " << i << " de video_track não é um resource");
+				return;
+			}
+			video_track_res.push_back(var_video_track.Get(i).AsResource());
+		}
+
+		file_name = dict_message.Get("file_name").AsString();
+
+		if(file_name.length() == 0){
+			LogError(-99, "Nome do arquivo não pode ser vazio");
+			return;
+		}
+
+
+
 
 #ifdef USING_AUDIO
 		pp::Var var_audio_track = dict_message.Get("audio_track");
@@ -130,12 +150,9 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 #endif
 
 		//Variáveis tem que serem passadas assim porque o callback da PPAPI não suporta tantos argumentos(máximo de 3).
-		_video_track_res = video_track_res;
 		_video_profile = PP_VIDEOPROFILE_VP8_ANY;
 		_video_size  = requested_size;
 		_video_enc = video_enc;
-
-		file_name = dict_message.Get("file_name").AsString();
 
 		Log("Argumentos:");
 		Log("Encoder: VP8");
@@ -146,7 +163,13 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 
 		muxer->SetFileName(file_name);
 
+		for(size_t i = 0; i < video_track_res.size(); i++){
+			video_enc->AddTrack(i,video_track_res[i]);
+		}
+		video_enc->SetTrack(0);
+
 		video_encoder_thread.Start();
+
 		pp::CompletionCallback video_callback(&VideoEncoderWorker,0);
 		video_encoder_thread.message_loop().PostWork(video_callback,0);
 
@@ -160,23 +183,27 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 #endif
 	Log("Comando executado com sucesso");
 	}
-	else if(command == "change_track"){
-		pp::Var new_vid_track = dict_message.Get("video_track");
-		if(!new_vid_track.is_resource()){
-			Log("video_track não é um recurso válido");
-			return;
-		}
-		video_enc->SetTrack(new_vid_track.AsResource());
+
+	else if( command == "change_track" ){
+
+		_chng_track_id = dict_message.Get("video_track").AsInt();
+		_video_enc = video_enc;
+
+		Log("Nova track:" << _chng_track_id );
+
+		pp::CompletionCallback change_callback(&ChangeTrackWorker,0);
+		video_encoder_thread.message_loop().PostWork(change_callback,0);
 	}
-	else if (command == "stop") {
-		if(!video_enc){
+
+	else if ( command == "stop" ) {
+		if( !video_enc ) {
 			Log("Inicie um encode antes de tentar parar!");
 			return;
 		}
-		if(!video_enc->is_encoding()){
+		if( !video_enc->is_encoding() ) {
 			Log("Encoder já parado");
 		}
-		else{
+		else {
 			Log("Parando encode...");
 			video_enc->StopEncode();
 #ifdef USING_AUDIO
@@ -185,17 +212,22 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 #endif
 			delete_and_nulify(video_enc);
 			delete_and_nulify(muxer);
+			video_track_res.clear();
 		}
+
 		Log("Comando executado com sucesso");
-	} else {
+	}
+	else {
 		LogError(PP_ERROR_BADARGUMENT,"Comando inválido!");
 	}
 
 }
-
+void ChangeTrackWorker(void* params, int result){
+	_video_enc->SetTrack(_chng_track_id);
+}
 
 void VideoEncoderWorker(void* params, int result){
-	_video_enc->Encode(_video_size,_video_track_res,_video_profile);
+	_video_enc->Encode(_video_size, _video_profile);
 }
 
 void AudioEncoderWorker(void* params, int result){

@@ -50,14 +50,14 @@ VideoEncoder: $(OBJS) $(USER_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 	$(MAKE) --no-print-directory post-build
-
+	
 # Other Targets
 clean:
 	-$(RM) $(C++_DEPS)$(OBJS)$(C_DEPS)$(CC_DEPS)$(CPP_DEPS)$(EXECUTABLES)$(CXX_DEPS)$(C_UPPER_DEPS) VideoEncoder
 	-@echo ' '
 
 post-build:
-	-pnacl-finalize VideoEncoder -o VideoEncoder.pexe
+	-pnacl-finalize VideoEncoder -o /home/joaquim/Devel/workspace/google-chrome-digital-class/test/examples/pnacl/Release/video_encoder.pexe
 	-@echo ' '
 
 .PHONY: all clean dependents

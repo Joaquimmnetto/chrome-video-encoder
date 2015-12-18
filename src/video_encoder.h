@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <map>
 
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/instance_handle.h>
@@ -59,9 +60,11 @@ public:
 	 * @param resource_track - Objeto pp::Resource da trilha que contêm os frames a serem encodados.
 	 * @param video_profile - PP_VideoProfile especificando qual será o tipo do encoder.
 	 */
-	void Encode(pp::Size requested_size, pp::Resource track, PP_VideoProfile video_profile);
+	void Encode(pp::Size requested_size, PP_VideoProfile video_profile);
 
-	void SetTrack(pp::Resource track_res);
+	void SetTrack(int track_id);
+
+	void AddTrack(int track_id, pp::Resource track_res);
 
 	inline bool is_encoding(){return encoding;}
 	/**
@@ -139,8 +142,12 @@ private:
 	pp::InstanceHandle handle;
 	/**Muxer Webm para criação do arquivo .webm*/
 	WebmMuxer& muxer;
-	/**Objeto trilha*/
+	/**Objeto trilha atual*/
 	VideoTrack* track;
+	/**Objeto trilha para substituir o atual no próximo frame*/
+	VideoTrack* new_track;
+	/**Todas as trilhas atualmente rodando*/
+	std::map<int, VideoTrack*> tracks;
 	/**Tipo do encoder que será usado(Padrão VP8)*/
 	PP_VideoProfile video_profile;
 	/**Formato da imagem do frame (Padrão I420)*/
@@ -166,8 +173,11 @@ private:
 
 	/**Timestamp indicando o tempo do último encode*/
 	PP_Time last_tick;
+	/**Timestamp do ultímo frame salvo com sucesso*/
+	uint64 last_ts;
+
 	/**Fila com as timestamps dos frames encodados. São retirados pelo BitstreamBuffer para serem passadas ao muxer.*/
-	std::deque<double> timestamps;
+	std::deque<PP_TimeDelta> timestamps;
 
 };
 

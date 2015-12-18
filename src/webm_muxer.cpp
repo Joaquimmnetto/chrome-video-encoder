@@ -11,7 +11,7 @@
 #include "log.h"
 
 WebmMuxer::WebmMuxer( pp::Instance& _instance ) :
-		instance(_instance),pSegment(0), initialized(false), finished(false) {
+		instance(_instance),pSegment(0), delayed_frame_count(0), initialized(false), finished(false) {
 }
 
 WebmMuxer::~WebmMuxer() {
@@ -40,6 +40,8 @@ int WebmMuxer::Init( std::string file_name ) {
 			2);
 	pSegment->CuesTrack(video_track_num);
 
+	last_frame.set_timestamp(0);
+
 	initialized = true;
 	finished = false;
 
@@ -57,42 +59,60 @@ void WebmMuxer::ConfigureAudio( int _audio_sample_rate, int _audio_channels ) {
 	this->audio_channels = _audio_channels;
 }
 
-bool WebmMuxer::PushAudioFrame(byte* data, uint32 length, uint64 timestamp) {
 
-	mkvmuxer::Frame* frame = createFrame(data, length, timestamp, 2, false);
 
-	if (frame == NULL) {
-		Log("Erro ao inicializar o frame de audio " << timestamp);
-		return false;
-	}
-
-	audio_queue.push_back(frame);
-	return true;
-
-}
-
-bool WebmMuxer::PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame ) {
-	mkvmuxer::Frame* frame = createFrame(data, length, timestamp, 1, key_frame);
-
-	if (frame == NULL) {
-		Log("Erro ao inicializar o frame de video " << timestamp);
-		return false;
-	}
-	video_queue.push_back(frame);
-	return true;
-}
+//bool WebmMuxer::PushAudioFrame(byte* data, uint32 length, uint64 timestamp) {
+//
+//	mkvmuxer::Frame frame;
+//	CreateFrame(data, length, timestamp, 2, false, frame);
+//
+//	if (frame == NULL) {
+//		Log("Erro ao inicializar o frame de audio " << timestamp);
+//		return false;
+//	}
+//
+//	audio_queue.push_back(frame);
+//	return true;
+//
+//}
+//
+//bool WebmMuxer::PushVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame ) {
+//	mkvmuxer::Frame frame;
+//	CreateFrame(data, length, timestamp, 1, key_frame, frame);
+//
+//	if (frame == NULL) {
+//		Log("Erro ao inicializar o frame de video " << timestamp);
+//		return false;
+//	}
+//	video_queue.push_back(frame);
+//	return true;
+//}
 
 bool WebmMuxer::AddVideoFrame( byte* data, uint32 length, uint64 timestamp, bool key_frame ) {
 
 	if (!Init(file_name)){
-		LogError(-99,"While initilizing muxer");
+		LogError(-99,"Enquanto inicializando o muxer");
 		return false;
 	}
 
-	bool result = pSegment->AddFrame(data, length, video_track_num, timestamp, key_frame);
+	mkvmuxer::Frame frame;
+	CreateFrame(data, length, timestamp, video_track_num, key_frame, frame);
 
-	return result;
+	if( !frame.IsValid() || (frame.timestamp() < last_frame.timestamp()) ) {
+		Log("Frame " << frame.timestamp() << "atrasado na reprodução, pulando frame...");
 
+		delayed_frame_count++;
+	}else{
+		if(delayed_frame_count > 0){
+			SaveDelayed(frame.timestamp());
+		}
+		if(pSegment->AddGenericFrame(&frame)){
+			last_frame.CopyFrom(frame);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool WebmMuxer::Finish() {
@@ -115,56 +135,67 @@ bool WebmMuxer::Finish() {
 	return true;
 }
 
-mkvmuxer::Frame* WebmMuxer::createFrame( byte* data, uint32 length,
-		uint64 timestamp, int track, bool key_frame ) {
+void WebmMuxer::CreateFrame( byte* data, uint32 length,
+		uint64 timestamp, int track, bool key_frame ,/*out*/mkvmuxer::Frame& frame) {
 
-	mkvmuxer::Frame* frame = new mkvmuxer::Frame();
-	if (!frame->Init(data, length)) {
-		delete frame;
-		return NULL;
+	if (frame.Init(data, length)) {
+		frame.set_is_key(key_frame);
+		frame.set_track_number(track);
+		frame.set_timestamp(timestamp);
 	}
-	frame->set_is_key(key_frame);
-	frame->set_track_number(track);
-	frame->set_timestamp(timestamp);
-
-	return frame;
 }
 
-bool WebmMuxer::WriteFrames( std::string file_name ) {
+void WebmMuxer::SaveDelayed(uint64 current_ts) {
 
-	if (!initialized) {
-		Init(file_name);
+	uint64 delay_ts = last_frame.timestamp();
+	uint64 delay_delta = (current_ts - delay_ts)
+			/ delayed_frame_count;
+
+	for (int i = 0; delayed_frame_count > 0; i++) {
+		last_frame.set_timestamp(delay_ts + i * delay_delta);
+
+		Log("Salvando frame atrasado " << last_frame.timestamp());
+		pSegment->AddGenericFrame(&last_frame);
+		delayed_frame_count--;
 	}
-
-	bool result = false;
-	mkvmuxer::Frame* audio_frame;
-	mkvmuxer::Frame* video_frame;
-
-	while (!audio_queue.empty() || !video_queue.empty()) {
-		mkvmuxer::Frame frame;
-
-		if (!audio_queue.empty()) {
-			audio_frame = audio_queue.front();
-		}
-		if (!video_queue.empty()) {
-			video_frame = video_queue.front();
-		}
-
-		if (audio_frame->IsValid() && video_frame->IsValid()) {
-			frame.CopyFrom(
-					video_frame->timestamp() < audio_frame->timestamp() ?
-							*video_frame : *audio_frame);
-		} else if (audio_frame->IsValid()) {
-			frame.CopyFrom(*audio_frame);
-		} else if (video_frame->IsValid()) {
-			frame.CopyFrom(*video_frame);
-		}
-		result = pSegment->AddGenericFrame(&frame) || result;
-
-		(frame.timestamp() == audio_frame->timestamp()) ?
-				audio_queue.pop_front() : video_queue.pop_front();
-	}
-
-	return Finish() && result;
 }
+
+//
+//bool WebmMuxer::WriteFrames( std::string file_name ) {
+//
+//	if (!initialized) {
+//		Init(file_name);
+//	}
+//
+//	bool result = false;
+//	mkvmuxer::Frame* audio_frame;
+//	mkvmuxer::Frame* video_frame;
+//
+//	while (!audio_queue.empty() || !video_queue.empty()) {
+//		mkvmuxer::Frame frame;
+//
+//		if (!audio_queue.empty()) {
+//			audio_frame = audio_queue.front();
+//		}
+//		if (!video_queue.empty()) {
+//			video_frame = video_queue.front();
+//		}
+//
+//		if (audio_frame->IsValid() && video_frame->IsValid()) {
+//			frame.CopyFrom(
+//					video_frame->timestamp() < audio_frame->timestamp() ?
+//							*video_frame : *audio_frame);
+//		} else if (audio_frame->IsValid()) {
+//			frame.CopyFrom(*audio_frame);
+//		} else if (video_frame->IsValid()) {
+//			frame.CopyFrom(*video_frame);
+//		}
+//		result = pSegment->AddGenericFrame(&frame) || result;
+//
+//		(frame.timestamp() == audio_frame->timestamp()) ?
+//				audio_queue.pop_front() : video_queue.pop_front();
+//	}
+//
+//	return Finish() && result;
+//}
 

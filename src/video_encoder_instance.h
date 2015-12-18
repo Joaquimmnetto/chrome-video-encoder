@@ -46,6 +46,7 @@ private:
 #ifdef USING_AUDIO
 	AudioEncoder* audio_enc;
 #endif
+
 	/**Encoder de vídeo*/
 	VideoEncoder* video_enc;
 	/**Muxer que será usado para criar o arquivo de video(ou video+audio) resultante*/
@@ -57,7 +58,7 @@ private:
 	/**Nome do arquivo a ser salvo pelo muxer*/
 	std::string file_name;
 
-	pp::Resource video_track_res;
+	std::vector<pp::Resource> video_track_res;
 
 	pp::Resource audio_track_res;
 };
