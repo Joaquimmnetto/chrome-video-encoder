@@ -40,12 +40,14 @@
 
 #define FS_PATH "/persistent/"
 
+#define KEY_FRAME_RATIO 20
+
 static bool probed_encoder = false;
 
 VideoEncoder::VideoEncoder(pp::Instance* _instance, WebmMuxer& _muxer) :
 		instance(_instance), handle(instance), muxer(_muxer), track(NULL), new_track(NULL), video_profile(PP_VIDEOPROFILE_VP8_ANY), frame_format(
 				PP_VIDEOFRAME_FORMAT_I420), cb_factory(this), encoding(false), encode_ticking(
-				false), last_tick(0), last_ts(0) {
+				false), force_key_frame(false), last_key_frame(0), last_tick(0), last_ts(0), frame_count(0) {
 
 	if (!probed_encoder) {
 		ProbeEncoder();
@@ -168,6 +170,11 @@ void VideoEncoder::ScheduleNextEncode() {
 	PP_Time delta = tick
 			- std::max(std::min(now - last_tick - tick, tick), 0.0);
 
+	//Um key frame a cada segundo, o primeiro frame é um key frame
+//	force_key_frame = ((now - last_key_frame) > 1.0) || (last_key_frame == 0);
+
+
+
 	(static_cast<VideoEncoderInstance*>(instance))->encoderThread().message_loop().PostWork(
 			cb_factory.NewCallback(&VideoEncoder::GetEncoderFrameTick),
 			delta * 1000);
@@ -177,18 +184,20 @@ void VideoEncoder::ScheduleNextEncode() {
 }
 
 void VideoEncoder::GetEncoderFrameTick(int32 result) {
-	encode_ticking = false;
 
 	if (encoding) {
 		if (new_track != NULL) {
 			track = new_track;
 			new_track = NULL;
+			force_key_frame = true;
 		}
 		if (receiving_frames && track && !track->current_frame.is_null()) {
 			pp::VideoFrame frame = track->current_frame;
 			track->current_frame.detach();
 			GetEncoderFrame(frame);
 		}
+
+		encode_ticking = false;
 		ScheduleNextEncode();
 	}
 }
@@ -214,8 +223,7 @@ void VideoEncoder::OnEncoderFrame(int32 result, pp::VideoFrame encoder_frame,
 	}
 
 	if (track_frame.is_null()) {
-		Log(
-				"Frame " << track_frame.GetTimestamp() << " é nulo, pulando frame...");
+		Log("Frame " << track_frame.GetTimestamp() << " é nulo, pulando frame...");
 		return;
 	}
 
@@ -240,10 +248,16 @@ int32 VideoEncoder::CopyVideoFrame(pp::VideoFrame dest, pp::VideoFrame src) {
 
 void VideoEncoder::EncodeFrame(const pp::VideoFrame& frame) {
 	timestamps.push_back(frame.GetTimestamp());
+
+	force_key_frame = frame_count > KEY_FRAME_RATIO;
+
 #ifdef LOG_FRAMES
-	Log("Encoding frame " << frame.GetTimestamp() * NS_EXP);
+	Log("Encodando frame " << frame.GetTimestamp() * NS_EXP );
+	if(force_key_frame){Log("key frame");}
 #endif
-	encoder.Encode(frame, PP_TRUE,
+
+	PP_Bool key_frame = force_key_frame ? PP_TRUE : PP_FALSE;
+	encoder.Encode(frame, key_frame,
 			cb_factory.NewCallback(&VideoEncoder::OnEncodeDone));
 }
 
@@ -253,6 +267,12 @@ void VideoEncoder::OnEncodeDone(int32 result) {
 	}
 	if (result != PP_OK) {
 		LogError(result, "Falha ao encodar");
+	}else{
+		if(force_key_frame){
+			frame_count = 0;
+			force_key_frame = false;
+		}
+		frame_count++;
 	}
 }
 
@@ -266,8 +286,7 @@ void VideoEncoder::OnGetBitstreamBuffer(int32 result,
 		return;
 	}
 
-	uint64 timestamp_ns = timestamps.front() * NS_EXP
-	;
+	uint64 timestamp_ns = timestamps.front() * NS_EXP;
 
 	byte* frame_data = static_cast<byte*>(buffer.buffer);
 	uint64 size = buffer.size;

@@ -213,8 +213,8 @@ void VideoEncoderInstance::HandleMessage( const pp::Var& var_message ) {
 			delete_and_nulify(video_enc);
 			delete_and_nulify(muxer);
 			video_track_res.clear();
+			PostMessage("StopComplete");
 		}
-
 		Log("Comando executado com sucesso");
 	}
 	else {

@@ -39,8 +39,6 @@
  * A trilha de frames mostra os frames obtidos do navegador, que são utilizados pelo Encoder. Este quando termina seu serviço, envia
  * os frames para o BitstreamBuffer para serem devidamente tratados.
  *
- *Ps: A organização poderia estar melhor, eu tentei separar tudo em classses distintas e tal, mas o encoder simplesmente recusa-se a funcionar
- *		com um código organizado.
  *
  * */
 class VideoEncoder {
@@ -48,20 +46,24 @@ public:
 	/**
 	 * Inicializa um encoder novo
 	 *
-	 * @param instance - instância do NaCl em que esse encoder está rodando
-	 * @param muxer - WebmMuxer que será usado para criar o arquivo .webm correspondente ao vídeo
+	 * @param instance - instância do NaCl em que esse encoder está rodando.
+	 * @param muxer - WebmMuxer que será usado para criar o arquivo .webm correspondente ao vídeo.
 	 */
 	VideoEncoder(pp::Instance* instance, WebmMuxer& muxer);
 	virtual ~VideoEncoder();
 	/**
 	 * Inicia o encoding do video.
 	 *
-	 * @param requested_size -
-	 * @param resource_track - Objeto pp::Resource da trilha que contêm os frames a serem encodados.
+	 * @param requested_size - Tamanho do vídeo que irá sair pelo encoder, e tamanho que irá ser usado para todas as tracks.
 	 * @param video_profile - PP_VideoProfile especificando qual será o tipo do encoder.
 	 */
 	void Encode(pp::Size requested_size, PP_VideoProfile video_profile);
-
+	/**
+	 * Seta a track que irá ser usada. Ele tem que ter sido adcionada primeiro com AddTrack()
+	 *
+	 * @param track_id - ID da track que foi passado para AddTrack()
+	 *
+	 **/
 	void SetTrack(int track_id);
 
 	void AddTrack(int track_id, pp::Resource track_res);
@@ -136,7 +138,7 @@ private:
 	void EncodeWorker(int result);
 
 
-	/**Instância atual utilizada pelo NaCl*/
+	/**Instância atual do pepper*/
 	pp::Instance* instance;
 	/**Handle desta instância, necessário para inicializar o encoder da PPAPI*/
 	pp::InstanceHandle handle;
@@ -154,13 +156,10 @@ private:
 	PP_VideoFrame_Format frame_format;
 	/**Tamanho passado pelo usuário para ser utilizado no encoding*/
 	pp::Size requested_size;
-	/**Tamanho do frame da track de frames*/
+	/**Tamanho do frame a ser passado para track de frames e para o encoder*/
 	pp::Size frame_size;
-//	/**Tamanho do frame a ser passado para o encoder*/
-//	pp::Size encoder_size;
 	/**Objeto encoder da PPAPI*/
 	pp::VideoEncoder encoder;
-//	std::vector<pp::MediaStreamVideoTrack> video_track;
 	/**Factory necessária para a criação de callbacks*/
 	pp::CompletionCallbackFactory<VideoEncoder> cb_factory;
 
@@ -170,12 +169,15 @@ private:
 	bool encode_ticking;
 	/**Se a track está ativa*/
 	bool receiving_frames;
-
+	/**Se o próximo key frame deve ser forçado. Necessário para fazer uma mudança de trilha sem perdas.*/
+	bool force_key_frame;
+	/**Timestamp indicando o tempo do último key frame lançado*/
+	PP_Time last_key_frame;
 	/**Timestamp indicando o tempo do último encode*/
 	PP_Time last_tick;
 	/**Timestamp do ultímo frame salvo com sucesso*/
 	uint64 last_ts;
-
+	uint64 frame_count;
 	/**Fila com as timestamps dos frames encodados. São retirados pelo BitstreamBuffer para serem passadas ao muxer.*/
 	std::deque<PP_TimeDelta> timestamps;
 

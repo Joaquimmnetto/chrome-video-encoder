@@ -1,7 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-#define LOG_FRAMES 1
+//#define LOG_FRAMES
 
 #ifndef INSTANCE
 	#define INSTANCE
